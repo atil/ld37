@@ -3,16 +3,17 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class RecordedAgent : Agent
+public class RecordedAgent : MonoBehaviour
 {
     public byte[] Record;
 
     private int _index;
 
-    protected override void Update()
+    void Update()
     {
         if (_index >= Record.Length)
         {
+            Destroy(gameObject);
             return;
         }
 

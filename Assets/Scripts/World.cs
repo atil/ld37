@@ -10,6 +10,7 @@ public class World : MonoBehaviour
     public GameObject PlayerAgentPrefab;
     public GameObject RecordedAgentPrefab;
     public GameObject ExitPrefab;
+    public Ui Ui;
 
     public List<GameObject> Walls;
 
@@ -17,36 +18,69 @@ public class World : MonoBehaviour
     private readonly List<Vector3> _startPoints = new List<Vector3>();
 
     private GameObject _exitGo;
-    private GameObject _playerGo;
+    private PlayerAgent _player;
+
+    private int _score;
+    private int _highScore;
 
     void Start()
     {
-        _playerGo = Instantiate(PlayerAgentPrefab);
+        _player = Instantiate(PlayerAgentPrefab).GetComponent<PlayerAgent>();
         _exitGo = Instantiate(ExitPrefab);
 
         _recordings.Add(new List<byte>());
 
-        _playerGo.GetComponent<PlayerAgent>().Displaced += (x, y) =>
+        _player.Displaced += (x, y) =>
         {
             var f1 = BitConverter.GetBytes(x);
             var f2 = BitConverter.GetBytes(y);
             _recordings.Last().AddRange(f1);
             _recordings.Last().AddRange(f2);
+
         };
 
-        _playerGo.GetComponent<PlayerAgent>().TriggeredExit += () =>
+        _player.TriggeredExit += () =>
         {
             var bot = Instantiate(RecordedAgentPrefab, _startPoints.Last(), Quaternion.identity);
             bot.GetComponent<RecordedAgent>().Record = _recordings.Last().ToArray();
             _recordings.Add(new List<byte>());
 
-            SpawnEnterExit(false);
+            _score++;
+
+            if (_score > _highScore)
+            {
+                _highScore = _score;
+            }
+
+            Ui.UpdateScore(_score, _highScore);
+
+            SpawnEnterExit(true);
+        };
+
+        _player.TriggeredBound += GameOver;
+
+        _player.TriggeredRecord += GameOver;
+
+        Ui.RestartTrigger += () =>
+        {
+            _player.enabled = true;
+
+            SpawnEnterExit(true);
         };
 
         SpawnEnterExit(true);
     }
 
-    void SpawnEnterExit(bool firstSpawn)
+    private void GameOver()
+    {
+        _player.enabled = false;
+        Ui.GameOver(_score, _highScore);
+        _recordings.Clear();
+        _recordings.Add(new List<byte>());
+        _score = 0;
+    }
+
+    private void SpawnEnterExit(bool givePlayerPush)
     {
         // Spawn random enter and exit points within walls
         var w1 = Walls[Random.Range(0, Walls.Count - 1)];
@@ -60,7 +94,7 @@ public class World : MonoBehaviour
         var randPnt2 = RandomPointIn(w2.GetComponent<BoxCollider2D>().bounds);
 
         var playerPos = new Vector3(randPnt1.x, randPnt1.y, -2);
-        _playerGo.GetComponent<PlayerAgent>().Init(playerPos, firstSpawn);
+        _player.Init(playerPos, givePlayerPush);
         _startPoints.Add(playerPos);
 
         _exitGo.transform.position = new Vector3(randPnt2.x, randPnt2.y, -2); ;
@@ -69,13 +103,8 @@ public class World : MonoBehaviour
 
     private Vector2 RandomPointIn(Bounds bnds)
     {
-        return (Vector2) bnds.center +
-               new Vector2(Random.Range(-1f, 1f)*bnds.extents.x, Random.Range(-1f, 1f)*bnds.extents.y);
-    }
-
-    void Update()
-    {
-        
+        return (Vector2)bnds.center +
+               new Vector2(Random.Range(-1f, 1f) * bnds.extents.x, Random.Range(-1f, 1f) * bnds.extents.y);
     }
 
 }
